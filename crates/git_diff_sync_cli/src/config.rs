@@ -17,26 +17,48 @@ const CONFIG_FOLDER_RELATIVE_PATH: &str = ".git_diff_sync/";
 const CONFIG_FILE_NAME: &str = "config.json";
 
 pub static CONFIG: OnceLock<Config> = OnceLock::new();
+pub static ARGUMENTS: OnceLock<Arguments> = OnceLock::new();
 
-#[derive(Debug, Default, Parser, Serialize, Deserialize)]
-#[command(version = crate_version!(), about, long_about = None, arg_required_else_help = true)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
+    pub server_address: String,
+    pub api_key: String,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            server_address: String::from("http://127.0.0.1:8000"),
+            api_key: String::from("GIT_DIFF_SYNC_SERVER_API_KEY_HERE"),
+        }
+    }
+}
+
+#[derive(Debug, Parser, Serialize)]
+#[command(version = crate_version!(), about, long_about = None, arg_required_else_help = true)]
+pub struct Arguments {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[arg(long, global = true)]
+    server_address: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[arg(long, global = true)]
+    api_key: Option<String>,
     #[serde(skip)]
     #[command(subcommand)]
     pub command: Commands,
 }
 
-#[derive(Debug, Default, Subcommand)]
+#[derive(Debug, Subcommand)]
 pub enum Commands {
     /// Pushes the current diff to the configured Git Diff Sync server.
-    #[default]
     Push,
     /// Pulls the most recent diff from the configured Git Diff Sync server.
     Pull,
 }
 
 pub fn parse() -> anyhow::Result<()> {
-    let config = {
+    let arguments = Arguments::parse();
+    let config: Config = {
         let user_config_folder_path = BaseDirs::new()
             .expect("should be able to get base directories")
             .config_local_dir()
@@ -51,17 +73,22 @@ pub fn parse() -> anyhow::Result<()> {
         }
 
         Figment::new()
-            .merge(Serialized::defaults(Config::parse()))
             .merge(Json::file_exact(user_config_file_path))
             .merge(Json::file(
                 PathBuf::from(CONFIG_FOLDER_RELATIVE_PATH).join(CONFIG_FILE_NAME),
             ))
             .merge(Env::prefixed("GIT_DIFF_SYNC_"))
+            .merge(Serialized::defaults(&arguments))
             .extract()?
     };
 
+    match ARGUMENTS.set(arguments) {
+        Ok(arguments) => Ok(arguments),
+        Err(_) => Err(anyhow::Error::msg("should be able to set ARGUMENTS")),
+    }?;
     match CONFIG.set(config) {
         Ok(config) => Ok(config),
         Err(_) => Err(anyhow::Error::msg("should be able to set CONFIG")),
-    }
+    }?;
+    Ok(())
 }

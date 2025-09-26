@@ -1,55 +1,74 @@
-use std::{
-    env,
-    fs::{self},
-    path::PathBuf,
-};
+#![feature(trim_prefix_suffix)]
 
-use directories::BaseDirs;
+use std::fs::{self};
+
+use git_diff_sync_server::config::{self, CONFIG};
 use rocket::{
+    Request,
     form::Form,
     fs::{FileServer, TempFile},
+    http::Status,
+    request::{self, FromRequest},
 };
-use rocket_errors::anyhow;
-use static_init::dynamic;
 use thiserror::Error;
 
 #[macro_use]
 extern crate rocket;
 
-const GIT_DIFFS_PATH_ENVIRONMENT_VARIABLE: &str = "GIT_DIFFS_PATH";
-
-#[dynamic]
-pub static GIT_DIFFS_PATH: PathBuf = {
-    match env::var(GIT_DIFFS_PATH_ENVIRONMENT_VARIABLE) {
-        Ok(git_diffs_path) => {
-            PathBuf::from(env::current_dir().expect("should be able to get working directory"))
-                .join(PathBuf::from(git_diffs_path))
-        }
-        Err(_) => {
-            let base_directories = BaseDirs::new().expect("should be able to get base directories");
-            base_directories
-                .data_dir()
-                .to_path_buf()
-                .join("git_diff_sync_server/data/diffs")
-        }
-    }
-};
+struct ApiKey();
 
 #[derive(Debug, Error)]
-pub enum GitDiffError {
-    #[error("Git diff file should have a name")]
-    FileWithoutName,
+enum ApiKeyError {
+    #[error("API key should be present")]
+    Missing,
+    #[error("API key should be valid")]
+    Invalid,
+}
+
+impl<'r> ApiKey {
+    pub fn check_api_key(request: &'r Request<'_>) -> request::Outcome<Self, ApiKeyError> {
+        let authorization_header = request.headers().get_one("Authorization");
+        match authorization_header {
+            Some(bearer_token) => {
+                if (CONFIG.get().expect("should be able to get CONFIG"))
+                    .api_keys
+                    .contains(&bearer_token.trim_prefix("Bearer ").to_string())
+                {
+                    return request::Outcome::Success(ApiKey());
+                }
+
+                return request::Outcome::Error((Status::Unauthorized, ApiKeyError::Invalid));
+            }
+            None => request::Outcome::Error((Status::Unauthorized, ApiKeyError::Missing)),
+        }
+    }
+}
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for ApiKey {
+    type Error = ApiKeyError;
+
+    async fn from_request(request: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
+        Self::check_api_key(request)
+    }
 }
 
 #[launch]
 fn rocket() -> _ {
-    fs::create_dir_all(GIT_DIFFS_PATH.as_path()).expect(&format!(
+    config::parse().expect("should be able to parse config");
+
+    let config = CONFIG.get().expect("should be able to get CONFIG");
+    fs::create_dir_all(&config.git_diffs_folder_path).expect(&format!(
         "should be able to create data folder at {}",
-        GIT_DIFFS_PATH.as_path().display()
+        &config.git_diffs_folder_path.display()
     ));
     rocket::build()
         .mount("/", routes![status, push_git_diff])
-        .mount("/diffs", FileServer::from(GIT_DIFFS_PATH.as_path()))
+        .mount(
+            "/diffs",
+            FileServer::new(&config.git_diffs_folder_path)
+                .filter(|_, request| ApiKey::check_api_key(request).is_success()),
+        )
 }
 
 #[get("/status")]
@@ -62,16 +81,24 @@ fn status() -> &'static str {
     format = "multipart/form-data",
     data = "<git_diff_file>"
 )]
-async fn push_git_diff(mut git_diff_file: Form<TempFile<'_>>) -> anyhow::Result<()> {
+async fn push_git_diff(
+    _api_key: ApiKey,
+    mut git_diff_file: Form<TempFile<'_>>,
+) -> Result<(), Status> {
     let git_diff_file_name = match git_diff_file.name() {
         Some(git_diff_file_name) => git_diff_file_name.to_owned(),
-        None => return Err(GitDiffError::FileWithoutName)?,
+        None => {
+            return Err(Status::BadRequest);
+        }
     };
-    let git_diff_file_path = {
-        let mut git_diff_file_path = GIT_DIFFS_PATH.as_path().to_path_buf();
-        git_diff_file_path.push(git_diff_file_name);
-        git_diff_file_path.with_extension("patch")
-    };
-    git_diff_file.copy_to(git_diff_file_path).await?;
-    Ok(())
+    let git_diff_file_path = CONFIG
+        .get()
+        .expect("should be able to get CONFIG")
+        .git_diffs_folder_path
+        .join(git_diff_file_name)
+        .with_extension("patch");
+    match git_diff_file.copy_to(git_diff_file_path).await {
+        Ok(_) => return Ok(()),
+        Err(_) => return Err(Status::InternalServerError),
+    }
 }

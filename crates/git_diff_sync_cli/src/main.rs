@@ -1,7 +1,7 @@
 use std::env;
 
 use clap::CommandFactory;
-use git_diff_sync::config::{self, CONFIG, Commands, Config};
+use git_diff_sync::config::{self, ARGUMENTS, Arguments, CONFIG, Commands};
 use git2::{DiffFormat, Error, Repository, Tree};
 use reqwest::{
     Client,
@@ -17,7 +17,7 @@ async fn main() -> anyhow::Result<()> {
         Ok(git_repository) => git_repository,
         Err(_) => {
             println!("warning: Not a git repository.");
-            let _ = Config::command().print_long_help();
+            let _ = Arguments::command().print_long_help();
             return Ok(());
         }
     };
@@ -33,9 +33,9 @@ async fn main() -> anyhow::Result<()> {
         .ok();
     let git_diff_file_name = get_git_diff_file_name(head_oid.as_ref());
     let client = Client::new();
-    match CONFIG
+    match ARGUMENTS
         .get()
-        .expect("should be able to get CLI arguments")
+        .expect("should be able to get ARGUMENTS")
         .command
     {
         Commands::Push => {
@@ -93,8 +93,10 @@ async fn push_git_diff(
         true
     })?;
 
+    let config = CONFIG.get().expect("should be able to get CONFIG");
     let response = client
-        .post("http://127.0.0.1:8000/diffs/push")
+        .post(format!("{}/diffs/push", &config.server_address))
+        .bearer_auth(&config.api_key)
         .multipart(
             Form::new().part(
                 "git_diff_file",
@@ -105,25 +107,32 @@ async fn push_git_diff(
         )
         .send()
         .await?;
-    let result = response.text().await?;
-
+    let response_text = {
+        let mut response_text = response.text().await?;
+        if !response_text.is_empty() {
+            response_text.insert_str(0, "\nReceived response:\n");
+        }
+        response_text
+    };
     println!(
-        "Pushed diff {} to the configured Git Diff Sync server. Result: {}",
-        git_diff_file_name, result
+        "Pushed diff {} to the configured Git Diff Sync server.{}",
+        git_diff_file_name, response_text
     );
     Ok(())
 }
 
 async fn pull_git_diff(git_diff_file_name: &str, client: Client) -> anyhow::Result<()> {
+    let config = CONFIG.get().expect("should be able to get CONFIG");
     let git_diff_file = client
         .get(format!(
-            "http://127.0.0.1:8000/diffs/{}",
-            git_diff_file_name
+            "{}/diffs/{}",
+            &config.server_address, git_diff_file_name
         ))
+        .bearer_auth(&config.api_key)
         .send()
         .await?;
 
     println!("{}", git_diff_file.text().await?);
-    println!("Pulling diff from the configured Git Diff Sync server.");
+    println!("Pulled diff from the configured Git Diff Sync server.");
     Ok(())
 }
