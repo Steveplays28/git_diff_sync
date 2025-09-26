@@ -56,7 +56,6 @@ pub fn parse() -> anyhow::Result<()> {
             .merge(Json::file(
                 PathBuf::from(CONFIG_FOLDER_RELATIVE_PATH).join(CONFIG_FILE_NAME),
             ))
-            // if fs::exists(CONFIG_FILE_RELATIVE_PATH)? {}
             .merge(Env::prefixed("GIT_DIFF_SYNC_"))
             .extract()?
     };
