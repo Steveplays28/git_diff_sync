@@ -1,5 +1,10 @@
-use std::{env, error::Error, path::PathBuf};
+use std::{
+    env,
+    fs::{self},
+    path::PathBuf,
+};
 
+use directories::BaseDirs;
 use rocket::{
     form::Form,
     fs::{FileServer, TempFile},
@@ -14,10 +19,21 @@ extern crate rocket;
 const GIT_DIFFS_PATH_ENVIRONMENT_VARIABLE: &str = "GIT_DIFFS_PATH";
 
 #[dynamic]
-pub static GIT_DIFFS_PATH: PathBuf = PathBuf::from(
-    env::var(GIT_DIFFS_PATH_ENVIRONMENT_VARIABLE)
-        .unwrap_or(String::from("target/debug/data/diffs/")),
-);
+pub static GIT_DIFFS_PATH: PathBuf = {
+    match env::var(GIT_DIFFS_PATH_ENVIRONMENT_VARIABLE) {
+        Ok(git_diffs_path) => {
+            PathBuf::from(env::current_dir().expect("should be able to get working directory"))
+                .join(PathBuf::from(git_diffs_path))
+        }
+        Err(_) => {
+            let base_directories = BaseDirs::new().expect("should be able to get base directories");
+            base_directories
+                .data_dir()
+                .to_path_buf()
+                .join("git_diff_sync_server/data/diffs")
+        }
+    }
+};
 
 #[derive(Debug, Error)]
 pub enum GitDiffError {
@@ -27,17 +43,13 @@ pub enum GitDiffError {
 
 #[launch]
 fn rocket() -> _ {
-    // TODO: Automatically create the required directories for the `FileServer` mount
+    fs::create_dir_all(GIT_DIFFS_PATH.as_path()).expect(&format!(
+        "should be able to create data folder at {}",
+        GIT_DIFFS_PATH.as_path().display()
+    ));
     rocket::build()
         .mount("/", routes![status, push_git_diff])
-        .mount(
-            "/diffs",
-            FileServer::from(
-                env::current_dir()
-                    .expect("should be able to get working directory")
-                    .join(GIT_DIFFS_PATH.as_path()),
-            ),
-        )
+        .mount("/diffs", FileServer::from(GIT_DIFFS_PATH.as_path()))
 }
 
 #[get("/status")]
@@ -56,8 +68,7 @@ async fn push_git_diff(mut git_diff_file: Form<TempFile<'_>>) -> anyhow::Result<
         None => return Err(GitDiffError::FileWithoutName)?,
     };
     let git_diff_file_path = {
-        let mut git_diff_file_path = env::current_dir()?;
-        git_diff_file_path.push(GIT_DIFFS_PATH.as_path());
+        let mut git_diff_file_path = GIT_DIFFS_PATH.as_path().to_path_buf();
         git_diff_file_path.push(git_diff_file_name);
         git_diff_file_path.with_extension("patch")
     };
