@@ -6,9 +6,12 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.100"
 clap = { version = "4.5.48", features = ["derive", "cargo"] }
-config = "0.15.17"
+directories = "6.0.0"
+figment = { version = "0.10.19", features = ["json", "env"] }
 git2 = "0.20.2"
 hex = "0.4.3"
 reqwest = { version = "0.12.23", features = ["multipart", "stream"] }
+serde = "1.0.227"
+serde_json = "1.0.145"
 sha2 = "0.10.9"
 tokio = { version = "1.47.1", features = ["full"] }
