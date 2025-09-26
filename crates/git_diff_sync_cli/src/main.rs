@@ -1,8 +1,9 @@
 use std::env;
 
+use anyhow::anyhow;
 use clap::CommandFactory;
 use git_diff_sync::config::{self, ARGUMENTS, Arguments, CONFIG, Commands};
-use git2::{DiffFormat, Error, Repository, Tree};
+use git2::{ApplyLocation, Diff, DiffFormat, Error, Repository, Tree};
 use reqwest::{
     Client,
     multipart::{Form, Part},
@@ -16,7 +17,7 @@ async fn main() -> anyhow::Result<()> {
     let git_repository = match Repository::open_from_env() {
         Ok(git_repository) => git_repository,
         Err(_) => {
-            println!("warning: Not a git repository.");
+            println!("Warning: not a Git repository.");
             let _ = Arguments::command().print_long_help();
             return Ok(());
         }
@@ -25,10 +26,10 @@ async fn main() -> anyhow::Result<()> {
         .head()
         .and_then(|head| {
             if let Some(head_target) = head.target() {
-                return Ok(git_repository.find_tree(head_target)?);
+                return Ok(git_repository.find_commit(head_target)?.tree()?);
             }
 
-            Err(Error::from_str("git repository head did not have a target"))
+            Err(Error::from_str("Git repository head did not have a target"))
         })
         .ok();
     let git_diff_file_name = get_git_diff_file_name(head_oid.as_ref());
@@ -47,7 +48,15 @@ async fn main() -> anyhow::Result<()> {
             )
             .await?
         }
-        Commands::Pull => pull_git_diff(&git_diff_file_name, client).await?,
+        Commands::Pull => {
+            pull_git_diff(
+                &git_repository,
+                head_oid.as_ref(),
+                &git_diff_file_name,
+                client,
+            )
+            .await?
+        }
     }
 
     Ok(())
@@ -76,12 +85,10 @@ fn get_git_diff_file_name(head_oid: Option<&Tree<'_>>) -> String {
     }
 }
 
-async fn push_git_diff(
+fn get_git_diff_file(
     git_repository: &Repository,
     head_oid: Option<&Tree<'_>>,
-    git_diff_file_name: String,
-    client: Client,
-) -> anyhow::Result<()> {
+) -> Result<String, Error> {
     let git_diff = {
         let mut git_diff = git_repository.diff_tree_to_index(head_oid, None, None)?;
         git_diff.merge(&git_repository.diff_index_to_workdir(None, None)?)?;
@@ -92,7 +99,15 @@ async fn push_git_diff(
         git_diff_file.push_str(&String::from_utf8_lossy(line.content()));
         true
     })?;
+    Ok(git_diff_file)
+}
 
+async fn push_git_diff(
+    git_repository: &Repository,
+    head_oid: Option<&Tree<'_>>,
+    git_diff_file_name: String,
+    client: Client,
+) -> anyhow::Result<()> {
     let config = CONFIG.get().expect("should be able to get CONFIG");
     let response = client
         .post(format!("{}/diffs/push", &config.server_address))
@@ -100,7 +115,7 @@ async fn push_git_diff(
         .multipart(
             Form::new().part(
                 "git_diff_file",
-                Part::text(git_diff_file)
+                Part::text(get_git_diff_file(git_repository, head_oid)?)
                     .file_name(git_diff_file_name.clone())
                     .mime_str("text/plain; charset=UTF-8")?,
             ),
@@ -121,7 +136,12 @@ async fn push_git_diff(
     Ok(())
 }
 
-async fn pull_git_diff(git_diff_file_name: &str, client: Client) -> anyhow::Result<()> {
+async fn pull_git_diff(
+    git_repository: &Repository,
+    head_oid: Option<&Tree<'_>>,
+    git_diff_file_name: &str,
+    client: Client,
+) -> anyhow::Result<()> {
     let config = CONFIG.get().expect("should be able to get CONFIG");
     let git_diff_file = client
         .get(format!(
@@ -131,8 +151,25 @@ async fn pull_git_diff(git_diff_file_name: &str, client: Client) -> anyhow::Resu
         .bearer_auth(&config.api_key)
         .send()
         .await?;
+    if !get_git_diff_file(git_repository, head_oid)?.is_empty()
+        && !ARGUMENTS
+            .get()
+            .expect("should be able to get ARGUMENTS")
+            .force
+    {
+        return Err(anyhow!(
+            "Git working directory not clean.\nDid not apply diff from the configured Git Diff Sync server, use --force to override."
+        ));
+    }
 
-    println!("{}", git_diff_file.text().await?);
-    println!("Pulled diff from the configured Git Diff Sync server.");
+    git_repository.apply(
+        &Diff::from_buffer(&git_diff_file.bytes().await?)?,
+        ApplyLocation::Both,
+        None,
+    )?;
+    println!(
+        "Pulled and applied diff {} from the configured Git Diff Sync server.",
+        git_diff_file_name
+    );
     Ok(())
 }

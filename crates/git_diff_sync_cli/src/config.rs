@@ -46,6 +46,9 @@ pub struct Arguments {
     #[serde(skip)]
     #[command(subcommand)]
     pub command: Commands,
+    #[serde(skip)]
+    #[arg(action, short, long, global = true)]
+    pub force: bool,
 }
 
 #[derive(Debug, Subcommand)]
