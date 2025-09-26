@@ -1,0 +1,71 @@
+[
+	{
+		"adapter": "CodeLLDB",
+		"request": "launch",
+		"label": "Run Git Diff Sync CLI (push)",
+		"program": "$ZED_WORKTREE_ROOT/target/debug/git-diff-sync",
+		"args": ["push"],
+		"build": {
+			"label": "Run",
+			"command": "cargo",
+			"args": ["build"],
+			"env": {},
+			"cwd": "$ZED_DIRNAME",
+			"use_new_terminal": false,
+			"allow_concurrent_runs": false,
+			"reveal": "always",
+			"reveal_target": "dock",
+			"hide": "never",
+			"shell": "system",
+			"show_summary": false,
+			"show_command": false
+		},
+		"sourceLanguages": ["rust"]
+	},
+	{
+		"adapter": "CodeLLDB",
+		"request": "launch",
+		"label": "Run Git Diff Sync CLI (pull)",
+		"program": "$ZED_WORKTREE_ROOT/target/debug/git-diff-sync",
+		"args": ["pull"],
+		"build": {
+			"label": "Run",
+			"command": "cargo",
+			"args": ["build"],
+			"env": {},
+			"cwd": "$ZED_DIRNAME",
+			"use_new_terminal": false,
+			"allow_concurrent_runs": false,
+			"reveal": "always",
+			"reveal_target": "dock",
+			"hide": "never",
+			"shell": "system",
+			"show_summary": false,
+			"show_command": false
+		},
+		"sourceLanguages": ["rust"]
+	},
+	{
+		"adapter": "CodeLLDB",
+		"request": "launch",
+		"label": "Run Git Diff Sync Server",
+		"program": "$ZED_WORKTREE_ROOT/target/debug/git_diff_sync_server",
+		"args": ["--api-keys=admin"],
+		"build": {
+			"label": "Run",
+			"command": "cargo",
+			"args": ["build"],
+			"env": {},
+			"cwd": "$ZED_DIRNAME",
+			"use_new_terminal": false,
+			"allow_concurrent_runs": false,
+			"reveal": "always",
+			"reveal_target": "dock",
+			"hide": "never",
+			"shell": "system",
+			"show_summary": false,
+			"show_command": false
+		},
+		"sourceLanguages": ["rust"]
+	}
+]
