@@ -55,8 +55,8 @@ WORKDIR /app
 # Copy the main binary
 COPY --from=builder /app/target/release/$server_package /usr/local/bin
 # Copy static assets
-COPY --from=builder /app/$server_package/Rocket.tom[l] ./static
-COPY --from=builder /app/$server_package/stati[c] ./static
-COPY --from=builder /app/$server_package/template[s] ./templates
+COPY --from=builder /app/crates/$server_package/Rocket.tom[l] ./static
+COPY --from=builder /app/crates/$server_package/stati[c] ./static
+COPY --from=builder /app/crates/$server_package/template[s] ./templates
 
 ENTRYPOINT ["/usr/local/bin/git_diff_sync_server"]
