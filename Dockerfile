@@ -27,18 +27,22 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 # Planner
 FROM chef AS planner
 
+ARG server_package=git_diff_sync_server
+
 COPY . .
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
 	--mount=type=cache,target=$SCCACHE_DIR,sharing=locked \
-	cargo chef prepare --recipe-path recipe.json
+	cargo chef prepare --recipe-path recipe.json --bin $server_package
 
 # Builder
 FROM chef AS builder
 
+ARG server_package=git_diff_sync_server
+
 COPY --from=planner /app/recipe.json recipe.json
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
 	--mount=type=cache,target=$SCCACHE_DIR,sharing=locked \
-	cargo chef cook --release --recipe-path recipe.json
+	cargo chef cook --release --recipe-path recipe.json --bin $server_package
 
 COPY . .
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
