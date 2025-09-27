@@ -43,7 +43,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 COPY . .
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
 	--mount=type=cache,target=$SCCACHE_DIR,sharing=locked \
-	cargo build --release
+	cargo build --release -p git_diff_sync_server
 
 # Application
 FROM debian:bookworm-slim AS runtime
