@@ -56,13 +56,18 @@ async fn main() -> anyhow::Result<()> {
             )
             .await?
         }
-        Commands::Pull => {
+        Commands::Pull {
+            force,
+            reset_working_tree,
+        } => {
             pull_git_diff(
                 &git_repository,
                 git_head_tree.as_ref(),
                 git_head_commit.as_ref(),
                 &git_diff_file_name,
                 client,
+                force,
+                reset_working_tree,
             )
             .await?
         }
@@ -167,9 +172,10 @@ async fn pull_git_diff(
     git_head_commit: Option<&Commit<'_>>,
     git_diff_file_name: &str,
     client: Client,
+    force: bool,
+    reset_working_tree: bool,
 ) -> anyhow::Result<()> {
     let config = CONFIG.get().expect("should be able to get CONFIG");
-    let arguments = ARGUMENTS.get().expect("should be able to get ARGUMENTS");
     let response = client
         .get(format!(
             "{}/diffs/{}",
@@ -191,15 +197,13 @@ async fn pull_git_diff(
             response.text().await?
         ));
     }
-    if !get_git_diff_file(git_repository, git_head_tree)?.is_empty() && !arguments.force {
+    if !get_git_diff_file(git_repository, git_head_tree)?.is_empty() && !force {
         return Err(anyhow!(
             "Git working directory not clean.\nDid not apply diff from the configured Git Diff Sync server, use --force to override."
         ));
     }
 
-    if arguments.reset_working_tree
-        && let Some(git_head_commit) = git_head_commit
-    {
+    if reset_working_tree && let Some(git_head_commit) = git_head_commit {
         git_repository.reset(
             git_head_commit.as_object(),
             ResetType::Hard,

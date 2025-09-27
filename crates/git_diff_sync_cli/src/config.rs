@@ -37,21 +37,17 @@ impl Default for Config {
 #[derive(Debug, Parser, Serialize)]
 #[command(version = crate_version!(), author = crate_authors!(), long_about = format!("{}  Copyright (C) 2025  {}\n{}", crate_name!(), crate_authors!(), crate_description!()), arg_required_else_help = true)]
 pub struct Arguments {
+    /// The IP address/domain of the Git Diff Sync Server.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[arg(long, global = true)]
     server_address: Option<String>,
+    /// The API key assigned by the Git Diff Sync Server.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[arg(long, global = true)]
     api_key: Option<String>,
     #[serde(skip)]
     #[command(subcommand)]
     pub command: Commands,
-    #[serde(skip)]
-    #[arg(action, short, long, global = true)]
-    pub force: bool,
-    #[serde(skip)]
-    #[arg(action, short, long, global = true)]
-    pub reset_working_tree: bool,
 }
 
 #[derive(Debug, Subcommand)]
@@ -59,7 +55,15 @@ pub enum Commands {
     /// Pushes the current diff to the configured Git Diff Sync server.
     Push,
     /// Pulls the most recent diff from the configured Git Diff Sync server.
-    Pull,
+    Pull {
+        /// Attempt to apply the Git diff even if the Git working directory is not clean.
+        #[arg(action, short, long, global = true)]
+        force: bool,
+        /// Hard reset the Git working directory before pulling. Equivalent to `git reset --hard HEAD`.
+        /// WARNING: This is a potentially destructive option.
+        #[arg(action, short, long, global = true)]
+        reset_working_tree: bool,
+    },
 }
 
 pub fn parse() -> anyhow::Result<()> {
