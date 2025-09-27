@@ -29,7 +29,7 @@ async fn main() -> anyhow::Result<()> {
         .head()
         .and_then(|head| {
             if let Some(head_target) = head.target() {
-                return Ok(git_repository.find_commit(head_target)?);
+                return git_repository.find_commit(head_target);
             }
 
             Err(Error::from_str(

@@ -29,16 +29,14 @@ impl<'r> ApiKey {
     pub fn check_api_key(request: &'r Request<'_>) -> request::Outcome<Self, ApiKeyError> {
         let authorization_header = request.headers().get_one("Authorization");
         match authorization_header {
-            Some(bearer_token) => {
+            Some(bearer_token)
                 if (CONFIG.get().expect("should be able to get CONFIG"))
                     .api_keys
-                    .contains(&bearer_token.trim_prefix("Bearer ").to_string())
-                {
-                    return request::Outcome::Success(ApiKey());
-                }
-
-                return request::Outcome::Error((Status::Unauthorized, ApiKeyError::Invalid));
+                    .contains(&bearer_token.trim_prefix("Bearer ").to_string()) =>
+            {
+                request::Outcome::Success(ApiKey())
             }
+            Some(_) => request::Outcome::Error((Status::Unauthorized, ApiKeyError::Invalid)),
             None => request::Outcome::Error((Status::Unauthorized, ApiKeyError::Missing)),
         }
     }
@@ -58,10 +56,13 @@ fn rocket() -> _ {
     config::parse().expect("should be able to parse config");
 
     let config = CONFIG.get().expect("should be able to get CONFIG");
-    fs::create_dir_all(&config.git_diffs_folder_path).expect(&format!(
-        "should be able to create data folder at {}",
-        &config.git_diffs_folder_path.display()
-    ));
+    fs::create_dir_all(&config.git_diffs_folder_path).unwrap_or_else(|error| {
+        panic!(
+            "should be able to create data folder at {}\n{}",
+            &config.git_diffs_folder_path.display(),
+            error
+        )
+    });
     rocket::build()
         .mount("/", routes![status, push_git_diff])
         .mount(
@@ -98,7 +99,7 @@ async fn push_git_diff(
         .join(git_diff_file_name)
         .with_extension("patch");
     match git_diff_file.copy_to(git_diff_file_path).await {
-        Ok(_) => return Ok(()),
-        Err(_) => return Err(Status::InternalServerError),
+        Ok(_) => Ok(()),
+        Err(_) => Err(Status::InternalServerError),
     }
 }
