@@ -8,7 +8,7 @@ use git2::{
     build::CheckoutBuilder,
 };
 use reqwest::{
-    Client,
+    Client, StatusCode,
     multipart::{Form, Part},
 };
 use sha2::{Digest, Sha256};
@@ -170,7 +170,7 @@ async fn pull_git_diff(
 ) -> anyhow::Result<()> {
     let config = CONFIG.get().expect("should be able to get CONFIG");
     let arguments = ARGUMENTS.get().expect("should be able to get ARGUMENTS");
-    let git_diff_file = client
+    let response = client
         .get(format!(
             "{}/diffs/{}",
             &config.server_address, git_diff_file_name
@@ -178,6 +178,19 @@ async fn pull_git_diff(
         .bearer_auth(&config.api_key)
         .send()
         .await?;
+    let response_status_code = response.status();
+    if response_status_code == StatusCode::NOT_FOUND {
+        return Err(anyhow!(
+            "There are no changes to pull from the configured Git Diff Sync server."
+        ));
+    }
+    if response_status_code != StatusCode::OK {
+        return Err(anyhow!(
+            "Received an error from the Git Diff Sync Server: {}\n{}",
+            response_status_code,
+            response.text().await?
+        ));
+    }
     if !get_git_diff_file(git_repository, git_head_tree)?.is_empty() && !arguments.force {
         return Err(anyhow!(
             "Git working directory not clean.\nDid not apply diff from the configured Git Diff Sync server, use --force to override."
@@ -195,7 +208,7 @@ async fn pull_git_diff(
     }
 
     git_repository.apply(
-        &Diff::from_buffer(&git_diff_file.bytes().await?)?,
+        &Diff::from_buffer(&response.bytes().await?)?,
         ApplyLocation::Both,
         None,
     )?;
