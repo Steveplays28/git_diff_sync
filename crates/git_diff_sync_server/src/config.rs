@@ -38,7 +38,7 @@ impl Default for Config {
 pub fn parse() -> anyhow::Result<()> {
     let config: Config = {
         Figment::new()
-            .admerge(Env::prefixed("GIT_DIFF_SYNC_"))
+            .admerge(Env::prefixed("GIT_DIFF_SYNC_SERVER_"))
             .adjoin(Serialized::defaults(Config::parse()))
             .extract()?
     };

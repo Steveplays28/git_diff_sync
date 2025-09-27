@@ -8,5 +8,11 @@ services:
     environment:
       ROCKET_ADDRESS: "0.0.0.0"
       ROCKET_PORT: "9205"
+      GIT_DIFF_SYNC_SERVER_GIT_DIFFS_FOLDER_PATH: "/var/lib/git_diff_sync_server/data/diffs/"
+      GIT_DIFF_SYNC_SERVER_API_KEYS: |
+        "API_KEY_0_HERE"
+        "API_KEY_1_HERE"
+    volumes:
+      - /home/EXAMPLE/docker/git_diff_sync_server/data/diffs/:/var/lib/git_diff_sync_server/data/diffs/
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
