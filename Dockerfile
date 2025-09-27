@@ -1,22 +1,27 @@
 # Base
 FROM docker.io/rust:1-slim-bookworm AS base
 
+WORKDIR /app
+
+COPY rust-toolchain.toml rust-toolchain.toml
 RUN rustup toolchain install
 
-# Chef
-FROM base AS chef
+# Sccache
+FROM base AS sccache
 
-RUN cargo install cargo-chef
-
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-	--mount=target=/var/cache/apt,type=cache,sharing=locked \
-	rm -f /etc/apt/apt.conf.d/docker-clean \
+RUN cargo install cargo-binstall
+RUN rm -f /etc/apt/apt.conf.d/docker-clean \
 	&& apt-get update \
 	&& apt-get -y --no-install-recommends install pkg-config libssl-dev
-RUN cargo install sccache
+RUN cargo binstall sccache
 ENV RUSTC_WRAPPER=sccache SCCACHE_DIR=/sccache
 
-WORKDIR /app
+# Chef
+FROM sccache AS chef
+
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+	--mount=type=cache,target=$SCCACHE_DIR,sharing=locked \
+	cargo binstall cargo-chef
 
 # Planner
 FROM chef AS planner
