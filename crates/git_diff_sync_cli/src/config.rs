@@ -28,7 +28,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            server_address: String::from("http://127.0.0.1:8000"),
+            server_address: String::from("http://127.0.0.1:9205"),
             api_key: String::from("GIT_DIFF_SYNC_SERVER_API_KEY_HERE"),
         }
     }
