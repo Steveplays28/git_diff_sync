@@ -17,7 +17,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - run: |
-          rustup toolchain install --component rustfmt
+          rustup toolchain install
+          rustup component add rustfmt
           sudo apt-get update
           sudo apt-get -y --no-install-recommends install mold clang
           cargo fmt --all -- --check
@@ -27,7 +28,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - run: |
-          rustup toolchain install --component clippy
+          rustup toolchain install
+          rustup component add clippy
           sudo apt-get update
           sudo apt-get -y --no-install-recommends install mold clang
           cargo clippy --all -- -D warnings
