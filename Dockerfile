@@ -1,7 +1,7 @@
 # Base
 FROM docker.io/rust:1-slim-bookworm AS base
 
-# NO-OP
+RUN rustup toolchain install
 
 # Chef
 FROM base AS chef

@@ -6,16 +6,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - run: cargo test --all
+      - run: |
+          rustup toolchain install
+          cargo test --all
 
   format:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - run: cargo fmt --all -- --check
+      - run: |
+          rustup toolchain install
+          cargo fmt --all -- --check
 
   clippy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - run: cargo clippy --all -- -D warnings
+      - run: |
+          rustup toolchain install
+          cargo clippy --all -- -D warnings
