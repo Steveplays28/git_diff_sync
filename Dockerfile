@@ -7,7 +7,7 @@ COPY rust-toolchain.toml rust-toolchain.toml
 RUN rustup toolchain install
 
 RUN rm -f /etc/apt/apt.conf.d/docker-clean && apt-get update
-RUN apt-get -y --no-install-recommends install curl mold
+RUN apt-get -y --no-install-recommends install curl mold clang
 
 # Sccache
 FROM base AS sccache
