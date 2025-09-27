@@ -9,11 +9,11 @@ RUN rustup toolchain install
 # Sccache
 FROM base AS sccache
 
-RUN cargo install cargo-binstall
+RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
 RUN rm -f /etc/apt/apt.conf.d/docker-clean \
 	&& apt-get update \
 	&& apt-get -y --no-install-recommends install pkg-config libssl-dev
-RUN cargo binstall sccache
+RUN cargo binstall sccache --no-confirm
 ENV RUSTC_WRAPPER=sccache SCCACHE_DIR=/sccache
 
 # Chef
@@ -21,7 +21,7 @@ FROM sccache AS chef
 
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
 	--mount=type=cache,target=$SCCACHE_DIR,sharing=locked \
-	cargo binstall cargo-chef
+	cargo binstall cargo-chef --no-confirm
 
 # Planner
 FROM chef AS planner
