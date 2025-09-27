@@ -1,6 +1,6 @@
 use std::{path::PathBuf, sync::OnceLock};
 
-use clap::{Parser, crate_version};
+use clap::{Parser, crate_authors, crate_description, crate_name, crate_version};
 use directories::BaseDirs;
 use figment::{
     Figment,
@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 pub static CONFIG: OnceLock<Config> = OnceLock::new();
 
 #[derive(Debug, Parser, Serialize, Deserialize)]
-#[command(version = crate_version!(), about, long_about = None)]
+#[command(version = crate_version!(), author = crate_authors!(), long_about = format!("{}  Copyright (C) 2025  {}\n{}", crate_name!(), crate_authors!(), crate_description!()))]
 pub struct Config {
     #[arg(long, default_value = Config::default().git_diffs_folder_path.display().to_string())]
     pub git_diffs_folder_path: PathBuf,

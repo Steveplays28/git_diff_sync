@@ -5,7 +5,7 @@ use std::{
     sync::OnceLock,
 };
 
-use clap::{Parser, Subcommand, crate_version};
+use clap::{Parser, Subcommand, crate_authors, crate_description, crate_name, crate_version};
 use directories::BaseDirs;
 use figment::{
     Figment,
@@ -35,7 +35,7 @@ impl Default for Config {
 }
 
 #[derive(Debug, Parser, Serialize)]
-#[command(version = crate_version!(), about, long_about = None, arg_required_else_help = true)]
+#[command(version = crate_version!(), author = crate_authors!(), long_about = format!("{}  Copyright (C) 2025  {}\n{}", crate_name!(), crate_authors!(), crate_description!()), arg_required_else_help = true)]
 pub struct Arguments {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[arg(long, global = true)]

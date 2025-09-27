@@ -4,5 +4,12 @@ members = ["crates/*"]
 default-members = ["crates/git_diff_sync_cli"]
 
 [workspace.package]
-version = "0.1.0"
 edition = "2024"
+authors = ["Steveplays28"]
+homepage = "https://steveplays.com"
+repository = "https://github.com/Steveplays28/git_diff_sync"
+license = "GPL-3.0-only"
+readme = "README.md"
+description = "Synchronize uncommitted Git changes to other devices."
+keywords = ["git", "synchronization", "git-diff", "rocket"]
+categories = ["command-line-utilities"]
