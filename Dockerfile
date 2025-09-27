@@ -6,13 +6,14 @@ WORKDIR /app
 COPY rust-toolchain.toml rust-toolchain.toml
 RUN rustup toolchain install
 
+RUN rm -f /etc/apt/apt.conf.d/docker-clean && apt-get update
+RUN apt-get -y --no-install-recommends install curl mold
+
 # Sccache
 FROM base AS sccache
 
 RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
-RUN rm -f /etc/apt/apt.conf.d/docker-clean \
-	&& apt-get update \
-	&& apt-get -y --no-install-recommends install pkg-config libssl-dev
+RUN apt-get -y --no-install-recommends install pkg-config libssl-dev
 RUN cargo binstall sccache --no-confirm
 ENV RUSTC_WRAPPER=sccache SCCACHE_DIR=/sccache
 
