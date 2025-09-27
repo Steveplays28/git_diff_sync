@@ -1,0 +1,12 @@
+services:
+  git_diff_sync_server:
+    image: ghcr.io/steveplays28/git_diff_sync_server:main
+    container_name: git_diff_sync_server
+    ports:
+      - "9205:9205"
+    restart: unless-stopped
+    environment:
+      ROCKET_ADDRESS: "0.0.0.0"
+      ROCKET_PORT: "9205"
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
