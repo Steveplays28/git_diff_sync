@@ -50,7 +50,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            ghcr.io/${{ github.repository }}
+            ghcr.io/${{ github.repository }}_server
           labels: |
             org.opencontainers.image.title=Git Diff Sync Server
             org.opencontainers.image.description=Synchronize uncommitted changes to other devices. See the [repository](https://github.com/Steveplays28/git_diff_sync).
