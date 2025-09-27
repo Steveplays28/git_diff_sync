@@ -49,6 +49,9 @@ pub struct Arguments {
     #[serde(skip)]
     #[arg(action, short, long, global = true)]
     pub force: bool,
+    #[serde(skip)]
+    #[arg(action, short, long, global = true)]
+    pub reset_working_tree: bool,
 }
 
 #[derive(Debug, Subcommand)]

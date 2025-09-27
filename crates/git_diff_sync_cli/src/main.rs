@@ -1,9 +1,12 @@
-use std::env;
+use std::{env, io::Read};
 
 use anyhow::anyhow;
 use clap::CommandFactory;
 use git_diff_sync::config::{self, ARGUMENTS, Arguments, CONFIG, Commands};
-use git2::{ApplyLocation, Diff, DiffFormat, Error, Repository, Tree};
+use git2::{
+    ApplyLocation, Commit, Diff, DiffFormat, DiffLineType, Error, Repository, ResetType, Tree,
+    build::CheckoutBuilder,
+};
 use reqwest::{
     Client,
     multipart::{Form, Part},
@@ -22,17 +25,22 @@ async fn main() -> anyhow::Result<()> {
             return Ok(());
         }
     };
-    let head_oid = git_repository
+    let git_head_commit = git_repository
         .head()
         .and_then(|head| {
             if let Some(head_target) = head.target() {
-                return Ok(git_repository.find_commit(head_target)?.tree()?);
+                return Ok(git_repository.find_commit(head_target)?);
             }
 
-            Err(Error::from_str("Git repository head did not have a target"))
+            Err(Error::from_str(
+                "Git repository head did not have a target commit",
+            ))
         })
         .ok();
-    let git_diff_file_name = get_git_diff_file_name(head_oid.as_ref());
+    let git_head_tree = git_head_commit
+        .as_ref()
+        .and_then(|git_head_commit| git_head_commit.tree().ok());
+    let git_diff_file_name = get_git_diff_file_name(git_head_tree.as_ref());
     let client = Client::new();
     match ARGUMENTS
         .get()
@@ -42,7 +50,7 @@ async fn main() -> anyhow::Result<()> {
         Commands::Push => {
             push_git_diff(
                 &git_repository,
-                head_oid.as_ref(),
+                git_head_tree.as_ref(),
                 git_diff_file_name,
                 client,
             )
@@ -51,7 +59,8 @@ async fn main() -> anyhow::Result<()> {
         Commands::Pull => {
             pull_git_diff(
                 &git_repository,
-                head_oid.as_ref(),
+                git_head_tree.as_ref(),
+                git_head_commit.as_ref(),
                 &git_diff_file_name,
                 client,
             )
@@ -96,7 +105,16 @@ fn get_git_diff_file(
     };
     let mut git_diff_file = String::new();
     git_diff.print(DiffFormat::Patch, |_delta, _hunk, line| {
-        git_diff_file.push_str(&String::from_utf8_lossy(line.content()));
+        let line_origin = line.origin_value();
+        if line_origin == DiffLineType::Addition
+            || line_origin == DiffLineType::Deletion
+            || line_origin == DiffLineType::Context
+        {
+            git_diff_file.push(line.origin());
+        }
+        line.content()
+            .read_to_string(&mut git_diff_file)
+            .expect("should be able to read Git diff content to a `String`");
         true
     })?;
     Ok(git_diff_file)
@@ -104,10 +122,17 @@ fn get_git_diff_file(
 
 async fn push_git_diff(
     git_repository: &Repository,
-    head_oid: Option<&Tree<'_>>,
+    git_head_tree: Option<&Tree<'_>>,
     git_diff_file_name: String,
     client: Client,
 ) -> anyhow::Result<()> {
+    let git_diff_file = get_git_diff_file(git_repository, git_head_tree)?;
+    if git_diff_file.is_empty() {
+        return Err(anyhow!(
+            "There are no changes to push to the configured Git Diff Sync server."
+        ));
+    }
+
     let config = CONFIG.get().expect("should be able to get CONFIG");
     let response = client
         .post(format!("{}/diffs/push", &config.server_address))
@@ -115,7 +140,7 @@ async fn push_git_diff(
         .multipart(
             Form::new().part(
                 "git_diff_file",
-                Part::text(get_git_diff_file(git_repository, head_oid)?)
+                Part::text(git_diff_file)
                     .file_name(git_diff_file_name.clone())
                     .mime_str("text/plain; charset=UTF-8")?,
             ),
@@ -138,11 +163,13 @@ async fn push_git_diff(
 
 async fn pull_git_diff(
     git_repository: &Repository,
-    head_oid: Option<&Tree<'_>>,
+    git_head_tree: Option<&Tree<'_>>,
+    git_head_commit: Option<&Commit<'_>>,
     git_diff_file_name: &str,
     client: Client,
 ) -> anyhow::Result<()> {
     let config = CONFIG.get().expect("should be able to get CONFIG");
+    let arguments = ARGUMENTS.get().expect("should be able to get ARGUMENTS");
     let git_diff_file = client
         .get(format!(
             "{}/diffs/{}",
@@ -151,15 +178,20 @@ async fn pull_git_diff(
         .bearer_auth(&config.api_key)
         .send()
         .await?;
-    if !get_git_diff_file(git_repository, head_oid)?.is_empty()
-        && !ARGUMENTS
-            .get()
-            .expect("should be able to get ARGUMENTS")
-            .force
-    {
+    if !get_git_diff_file(git_repository, git_head_tree)?.is_empty() && !arguments.force {
         return Err(anyhow!(
             "Git working directory not clean.\nDid not apply diff from the configured Git Diff Sync server, use --force to override."
         ));
+    }
+
+    if arguments.reset_working_tree
+        && let Some(git_head_commit) = git_head_commit
+    {
+        git_repository.reset(
+            git_head_commit.as_object(),
+            ResetType::Hard,
+            Some(CheckoutBuilder::new().force()),
+        )?;
     }
 
     git_repository.apply(
