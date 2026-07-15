@@ -18,6 +18,6 @@ directories = "6.0.0"
 figment = { version = "0.10.19", features = ["env"] }
 glob = "0.3.3"
 rocket = { git = "https://github.com/rwf2/Rocket.git", rev = "504efef179622df82ba1dbd37f2e0d9ed2b7c9e4" }
-serde = "1.0.227"
+serde = { version = "1.0.227", features = ["derive"] }
 static_init = "1.0.4"
 thiserror = "2.0.16"
