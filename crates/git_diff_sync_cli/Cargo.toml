@@ -19,7 +19,7 @@ figment = { version = "0.10.19", features = ["json", "env"] }
 git2 = "0.20.2"
 hex = "0.4.3"
 reqwest = { version = "0.12.23", features = ["multipart", "stream"] }
-serde = "1.0.227"
+serde = { version = "1.0.227", features = ["derive"] }
 serde_json = "1.0.145"
 sha2 = "0.10.9"
 tokio = { version = "1.47.1", features = ["full"] }
