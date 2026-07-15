@@ -1,6 +1,6 @@
 [package]
 name = "git_diff_sync_server"
-version = "1.0.0"
+version = "1.0.1"
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true
