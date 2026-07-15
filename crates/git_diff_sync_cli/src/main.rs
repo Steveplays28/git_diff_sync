@@ -140,7 +140,7 @@ async fn push_git_diff(
 
     let config = CONFIG.get().expect("should be able to get CONFIG");
     let response = client
-        .post(format!("{}/diffs/push", &config.server_address))
+        .post(format!("{}/diffs/push", config.server_address))
         .bearer_auth(&config.api_key)
         .multipart(
             Form::new().part(
@@ -179,7 +179,7 @@ async fn pull_git_diff(
     let response = client
         .get(format!(
             "{}/diffs/{}",
-            &config.server_address, git_diff_file_name
+            config.server_address, git_diff_file_name
         ))
         .bearer_auth(&config.api_key)
         .send()
