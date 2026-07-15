@@ -59,7 +59,7 @@ fn rocket() -> _ {
     fs::create_dir_all(&config.git_diffs_folder_path).unwrap_or_else(|error| {
         panic!(
             "should be able to create data folder at {}\n{}",
-            &config.git_diffs_folder_path.display(),
+            config.git_diffs_folder_path.display(),
             error
         )
     });
